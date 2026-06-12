@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบข้อมูลนักเรียน — โรงเรียนหนองสำโรงวิทยา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --navy:#1b3a5b; --navy-d:#13283f; --gold:#c79a3c; --gold-d:#a37d28;
+  --bg:#eef1f5; --surface:#ffffff; --line:#dde3ea; --line-d:#c4ccd6;
+  --ink:#1f2a37; --ink-2:#5a6776; --ink-3:#8995a4;
+  --ok:#1d7a52; --ok-bg:#e6f4ec; --warn:#9a6b12; --warn-bg:#fbf2dd;
+  --danger:#b23b3b; --danger-bg:#fbe9e9; --info:#1c5d9c; --info-bg:#e8f1fb;
+  --r:10px; --r-lg:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.55}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit;font-size:15px}
+.hidden{display:none!important}
+
+/* ---------- Top bar ---------- */
+.topbar{background:var(--navy);color:#fff;padding:0}
+.topbar-inner{max-width:1280px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:16px}
+.crest{width:44px;height:44px;border-radius:50%;background:var(--gold);color:var(--navy-d);
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex-shrink:0}
+.brand h1{font-size:20px;font-weight:600;letter-spacing:.2px}
+.brand p{font-size:13px;color:#b9c6d6;font-weight:400}
+.topbar-spacer{flex:1}
+.conn-badge{font-size:13px;padding:6px 12px;border-radius:20px;display:flex;align-items:center;gap:7px;font-weight:500}
+.conn-badge .dot{width:8px;height:8px;border-radius:50%}
+.conn-on{background:rgba(255,255,255,.12);color:#cdeed9}.conn-on .dot{background:#54d18c}
+.conn-off{background:rgba(255,255,255,.12);color:#f0c9c9}.conn-off .dot{background:#e07a7a}
+.icon-btn{background:rgba(255,255,255,.1);border:none;color:#fff;padding:8px 14px;border-radius:8px;font-size:14px;font-weight:500}
+.icon-btn:hover{background:rgba(255,255,255,.2)}
+
+/* ---------- Year strip ---------- */
+.yearstrip{background:var(--navy-d);padding:0}
+.yearstrip-inner{max-width:1280px;margin:0 auto;padding:0 24px;display:flex;align-items:center;gap:4px;overflow-x:auto}
+.ytab{background:none;border:none;color:#9fb0c4;padding:13px 20px;font-size:15px;font-weight:500;
+  border-bottom:3px solid transparent;white-space:nowrap}
+.ytab:hover{color:#fff}
+.ytab.active{color:#fff;border-bottom-color:var(--gold)}
+.ytab-add{color:var(--gold);font-weight:600}
+
+/* ---------- Layout ---------- */
+.wrap{max-width:1280px;margin:0 auto;padding:24px}
+.toolbar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
+.search-box{flex:1;min-width:260px;position:relative}
+.search-box input{width:100%;padding:11px 14px 11px 40px;border:1px solid var(--line-d);border-radius:var(--r);
+  background:var(--surface);outline:none}
+.search-box input:focus{border-color:var(--navy)}
+.search-box .si{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
+.fltr{padding:11px 14px;border:1px solid var(--line-d);border-radius:var(--r);background:var(--surface);outline:none;min-width:130px}
+.fltr:focus{border-color:var(--navy)}
+.btn{padding:11px 18px;border-radius:var(--r);font-size:15px;font-weight:600;border:1px solid transparent}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:var(--navy-d)}
+.btn-gold{background:var(--gold);color:var(--navy-d)}.btn-gold:hover{background:var(--gold-d);color:#fff}
+.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--line-d)}.btn-ghost:hover{border-color:var(--navy);color:var(--navy)}
+
+/* ---------- Stat cards ---------- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px}
+.stat .lbl{font-size:13px;color:var(--ink-2);font-weight:500;display:flex;align-items:center;gap:6px}
+.stat .num{font-size:30px;font-weight:700;color:var(--navy);margin-top:4px;line-height:1.1}
+.stat .num small{font-size:15px;color:var(--ink-3);font-weight:500}
+.stat.accent{border-top:3px solid var(--gold)}
+
+/* ---------- Panel ---------- */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.panel-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.panel-head h2{font-size:17px;font-weight:600;color:var(--navy)}
+.panel-head .sub{font-size:13px;color:var(--ink-2);font-weight:400}
+
+/* ---------- Table ---------- */
+.tbl-scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:15px}
+thead th{background:#f4f6f9;color:var(--ink-2);font-weight:600;text-align:left;padding:11px 14px;
+  border-bottom:1px solid var(--line);white-space:nowrap;font-size:13.5px;position:sticky;top:0}
+tbody td{padding:10px 14px;border-bottom:1px solid #eef1f4;white-space:nowrap}
+tbody tr:hover{background:#f8fafc;cursor:pointer}
+tbody tr:last-child td{border-bottom:none}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:600}
+.pill-m{background:var(--info-bg);color:var(--info)}
+.pill-f{background:#fbeaf2;color:#a23a6b}
+.muted{color:var(--ink-3)}
+.empty{text-align:center;padding:48px 20px;color:var(--ink-3)}
+.empty .big{font-size:17px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+
+/* pagination */
+.pager{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2)}
+.pager .pages{display:flex;gap:6px}
+.pgbtn{padding:6px 12px;border:1px solid var(--line-d);border-radius:8px;background:var(--surface);font-size:14px}
+.pgbtn:hover:not(:disabled){border-color:var(--navy)}
+.pgbtn:disabled{opacity:.4;cursor:default}
+.pgbtn.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+/* ---------- Drawer ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,25,40,.45);z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.show{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(560px,94vw);background:var(--bg);z-index:50;
+  transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;box-shadow:-8px 0 30px rgba(0,0,0,.15)}
+.drawer.show{transform:translateX(0)}
+.drawer-head{background:var(--navy);color:#fff;padding:20px 22px;position:sticky;top:0;z-index:2}
+.drawer-head .nm{font-size:21px;font-weight:600}
+.drawer-head .meta{font-size:14px;color:#b9c6d6;margin-top:3px}
+.drawer-close{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.15);border:none;color:#fff;
+  width:34px;height:34px;border-radius:8px;font-size:18px}
+.drawer-close:hover{background:rgba(255,255,255,.28)}
+.dsection{margin:16px 18px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
+.dsection h3{font-size:14px;font-weight:600;color:var(--navy);padding:12px 18px;background:#f4f6f9;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:8px}
+.dfield{display:flex;padding:8px 18px;border-bottom:1px solid #f0f3f6;font-size:15px}
+.dfield:last-child{border-bottom:none}
+.dfield .k{width:42%;color:var(--ink-2);flex-shrink:0}
+.dfield .v{width:58%;color:var(--ink);font-weight:500;word-break:break-word}
+.histrow{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f0f3f6}
+.histrow:last-child{border-bottom:none}
+.histyear{background:var(--navy);color:#fff;font-weight:600;font-size:14px;padding:4px 12px;border-radius:8px;flex-shrink:0}
+.histrow .hc{font-size:14px;color:var(--ink-2)}
+
+/* ---------- Modal ---------- */
+.modal{position:fixed;inset:0;background:rgba(15,25,40,.5);z-index:60;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal.show{opacity:1;pointer-events:auto}
+.modal-card{background:var(--surface);border-radius:var(--r-lg);width:min(620px,100%);max-height:90vh;overflow-y:auto}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--line)}
+.modal-head h2{font-size:19px;font-weight:600;color:var(--navy)}
+.modal-head p{font-size:14px;color:var(--ink-2);margin-top:4px}
+.modal-body{padding:22px 24px}
+.modal-foot{padding:16px 24px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.field input{width:100%;padding:11px 13px;border:1px solid var(--line-d);border-radius:var(--r);outline:none}
+.field input:focus{border-color:var(--navy)}
+.field .hint{font-size:13px;color:var(--ink-3);margin-top:5px}
+.steps{counter-reset:s;margin:0 0 18px;padding:0;list-style:none}
+.steps li{counter-increment:s;position:relative;padding:0 0 12px 34px;font-size:14.5px;color:var(--ink-2)}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:24px;height:24px;background:var(--navy);
+  color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.steps li b{color:var(--ink)}
+.dropzone{border:2px dashed var(--line-d);border-radius:var(--r-lg);padding:32px 20px;text-align:center;color:var(--ink-3);transition:.15s}
+.dropzone:hover,.dropzone.drag{border-color:var(--navy);background:#f8fafc;color:var(--navy)}
+.imp-preview{margin-top:16px;background:#f4f6f9;border-radius:var(--r);padding:14px 16px;font-size:14px}
+.imp-preview .row{display:flex;justify-content:space-between;padding:3px 0}
+.imp-preview b{color:var(--navy)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy-d);color:#fff;
+  padding:13px 22px;border-radius:var(--r);font-size:15px;font-weight:500;z-index:70;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(--ok)}.toast.err{background:var(--danger)}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.loading-row{text-align:center;padding:40px;color:var(--ink-2)}
+@media(max-width:640px){
+  .topbar-inner{padding:12px 16px}.wrap{padding:16px}.brand h1{font-size:17px}
+  .dfield .k{width:46%}.dfield .v{width:54%}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Top bar ===== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crest">นว</div>
+    <div class="brand">
+      <h1>ระบบข้อมูลนักเรียนรายบุคคล</h1>
+      <p>โรงเรียนหนองสำโรงวิทยา · ข้อมูลจากระบบ DMC</p>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div id="connBadge" class="conn-badge conn-off"><span class="dot"></span><span id="connText">ยังไม่เชื่อมต่อ</span></div>
+    <button class="icon-btn" onclick="openConfig()">⚙ ตั้งค่า</button>
+  </div>
+</header>
+
+<!-- ===== Year strip ===== -->
+<nav class="yearstrip">
+  <div class="yearstrip-inner" id="yearStrip"></div>
+</nav>
+
+<main class="wrap">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="search-box">
+      <span class="si">🔍</span>
+      <input id="searchInput" type="text" placeholder="ค้นหาด้วยชื่อ นามสกุล หรือเลขบัตรประชาชน (ค้นทุกปี)">
+    </div>
+    <select class="fltr" id="classFilter"><option value="">ทุกระดับชั้น</option></select>
+    <select class="fltr" id="genderFilter">
+      <option value="">ทุกเพศ</option><option value="ช">ชาย</option><option value="ญ">หญิง</option>
+    </select>
+    <button class="btn btn-gold" onclick="openImport()">⬆ นำเข้าจาก DMC</button>
+    <button class="btn btn-ghost" onclick="exportCurrent()">⬇ ส่งออก Excel</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow"></div>
+
+  <!-- Table -->
+  <div class="panel">
+    <div class="panel-head">
+      <div><h2 id="tableTitle">รายชื่อนักเรียน</h2><span class="sub" id="tableSub"></span></div>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th>ลำดับ</th><th>เลขบัตรประชาชน</th><th>ชื่อ - นามสกุล</th><th>ชั้น</th><th>ห้อง</th><th>เพศ</th><th>อายุ</th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="pager" id="pager"></div>
+  </div>
+</main>
+
+<!-- ===== Drawer (student detail) ===== -->
+<div class="overlay" id="overlay" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer"></aside>
+
+<!-- ===== Config modal ===== -->
+<div class="modal" id="configModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>ตั้งค่าการเชื่อมต่อ Google Sheets</h2>
+      <p>วางลิงก์ Web App ที่ได้จาก Google Apps Script เพื่อเชื่อมหน้าเว็บกับฐานข้อมูล</p>
+    </div>
+    <div class="modal-body">
+      <ol class="steps">
+        <li>เปิด Google Sheet → เมนู <b>ส่วนขยาย → Apps Script</b></li>
+        <li>วางโค้ดจากไฟล์ <b>Code.gs</b> แล้วบันทึก</li>
+        <li>กด <b>ทำให้ใช้งานได้ (Deploy) → การทำให้ใช้งานได้ใหม่ → เว็บแอป</b></li>
+        <li>ตั้งสิทธิ์เป็น <b>ทุกคน (Anyone)</b> แล้วคัดลอกลิงก์ Web App มาวางด้านล่าง</li>
+      </ol>
+      <div class="field">
+        <label>ลิงก์ Web App URL</label>
+        <input id="apiUrlInput" type="text" placeholder="https://script.google.com/macros/s/.../exec">
+        <div class="hint">ลิงก์จะถูกจดจำไว้ในเครื่องนี้ ไม่ต้องวางใหม่ทุกครั้ง</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeConfig()">ยกเลิก</button>
+      <button class="btn btn-primary" id="saveConfigBtn" onclick="saveConfig()">บันทึก &amp; ทดสอบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Add year modal ===== -->
+<div class="modal" id="yearModal">
+  <div class="modal-card">
+    <div class="modal-head"><h2>เพิ่มปีการศึกษา</h2><p>สร้างแท็บปีการศึกษาใหม่ในฐานข้อมูล</p></div>
+    <div class="modal-body">
+      <div class="field">
+        <label>ปีการศึกษา (พ.ศ. 4 หลัก)</label>
+        <input id="newYearInput" type="number" placeholder="เช่น 2570">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('yearModal')">ยกเลิก</button>
+      <button class="btn btn-primary" id="addYearBtn" onclick="doAddYear()">เพิ่มปี</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Import modal ===== -->
+<div class="modal" id="importModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>นำเข้าข้อมูลจากไฟล์ DMC</h2>
+      <p>อัปโหลดไฟล์ Excel ที่ส่งออกจากระบบ DMC ระบบจะตัดชื่อซ้ำด้วยเลขบัตรประชาชนให้อัตโนมัติ</p>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>นำเข้าเข้าปีการศึกษา</label>
+        <select id="importYear" class="fltr" style="width:100%"></select>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div style="font-size:30px;margin-bottom:8px">📄</div>
+        <div style="font-weight:600;color:var(--ink-2)">คลิกเพื่อเลือกไฟล์ หรือ ลากไฟล์ .xlsx มาวางที่นี่</div>
+        <div style="font-size:13px;margin-top:4px">ไฟล์ student.xlsx จาก DMC (39 คอลัมน์)</div>
+        <input id="fileInput" type="file" accept=".xlsx,.xls" class="hidden">
+      </div>
+      <div id="impPreview" class="imp-preview hidden"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('importModal')">ยกเลิก</button>
+      <button class="btn btn-gold hidden" id="confirmImportBtn" onclick="doImport()">ยืนยันนำเข้า</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= State ================= */
+const HEADERS = [
+  'รหัสโรงเรียน','ชื่อโรงเรียน','เลขประจำตัวประชาชน','ชั้น','ห้อง',
+  'เลขประจำตัวนักเรียน','เพศ','คำนำหน้าชื่อ','ชื่อ','นามสกุล',
+  'วันเกิด','อายุ(ปี)','น้ำหนัก','ส่วนสูง','กลุ่มเลือด','ศาสนา',
+  'เชื้อชาติ','สัญชาติ','บ้านเลขที่','หมู่','ถนน/ซอย','ตำบล','อำเภอ',
+  'จังหวัด','คำนำหน้าชื่อผู้ปกครอง','ชื่อผู้ปกครอง','นามสกุลผู้ปกครอง',
+  'อาชีพของผู้ปกครอง','ความเกี่ยวข้องของผู้ปกครองกับนักเรียน',
+  'คำนำหน้าชื่อบิดา','ชื่อบิดา','นามสกุลบิดา','อาชีพของบิดา',
+  'คำนำหน้าชื่อมารดา','ชื่อมารดา','นามสกุลมารดา','อาชีพของมารดา',
+  'ความด้อยโอกาส','ยังไม่สามารถจำหน่ายได้ (3.1.8)'
+];
+const ID=2, CLASS=3, ROOM=4, SID=5, SEX=6, PRE=7, FN=8, LN=9, AGE=11;
+const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},
+                set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
+const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyjYfD1HM1jZwMBARmBxvil8z68AqSQq98fmAyYWRlcPpCPg8JMOexIzODNAIUK1UtI/exec';
+let API = store.get('dmc_api_url') || DEFAULT_API;
+let currentYear = '';
+let allStudents = [];
+let filtered = [];
+let page = 1, perPage = 25;
+let importRows = null;
+const $ = id => document.getElementById(id);
+
+/* ================= API ================= */
+async function apiGet(params){
+  const url = API + '?' + new URLSearchParams(params).toString();
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(body){
+  const res = await fetch(API, {method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify(body)});
+  return res.json();
+}
+
+/* ================= Init ================= */
+window.addEventListener('DOMContentLoaded', init);
+async function init(){
+  $('apiUrlInput').value = API;
+  $('searchInput').addEventListener('input', debounce(onSearch, 350));
+  $('classFilter').addEventListener('change', applyFilters);
+  $('genderFilter').addEventListener('change', applyFilters);
+  setupDropzone();
+  if(!API){ openConfig(); setConn(false); return; }
+  const ok = await testConnection(true);
+  if(!ok){ toast('เชื่อมต่อฐานข้อมูลไม่สำเร็จ ลองรีเฟรชหน้า หรือตรวจสอบที่ตั้งค่า','err'); }
+}
+async function testConnection(loadAfter){
+  try{
+    const r = await apiGet({action:'ping'});
+    if(r && r.ok){ setConn(true); if(loadAfter) await loadYears(); return true; }
+    setConn(false); return false;
+  }catch(e){ setConn(false); return false; }
+}
+function setConn(on){
+  const b=$('connBadge'), t=$('connText');
+  b.className='conn-badge '+(on?'conn-on':'conn-off');
+  t.textContent = on?'เชื่อมต่อแล้ว':'ยังไม่เชื่อมต่อ';
+}
+
+/* ================= Years ================= */
+async function loadYears(){
+  const r = await apiGet({action:'years'});
+  const years = (r.years||[]);
+  const strip = $('yearStrip'); strip.innerHTML='';
+  if(!years.length){
+    strip.innerHTML = '<span style="color:#9fb0c4;padding:13px 4px;font-size:14px">ยังไม่มีปีการศึกษา — กดเพิ่มปีหรือ นำเข้าข้อมูล →</span>';
+  }
+  years.forEach(y=>{
+    const b=document.createElement('button');
+    b.className='ytab'+(y===currentYear?' active':'');
+    b.textContent='ปี '+y; b.onclick=()=>selectYear(y);
+    strip.appendChild(b);
+  });
+  const add=document.createElement('button');
+  add.className='ytab ytab-add'; add.textContent='+ เพิ่มปี';
+  add.onclick=openAddYear; strip.appendChild(add);
+  if(years.length){ selectYear(currentYear && years.includes(currentYear)?currentYear:years[0]); }
+  else { renderEmptyState(); }
+}
+async function selectYear(y){
+  currentYear=y;
+  document.querySelectorAll('.ytab').forEach(t=>t.classList.toggle('active', t.textContent==='ปี '+y));
+  $('searchInput').value='';
+  $('tableBody').innerHTML='<tr><td colspan="7" class="loading-row"><span class="spin" style="border-color:#ccc;border-top-color:#1b3a5b"></span> กำลังโหลด...</td></tr>';
+  const r = await apiGet({action:'students', year:y});
+  allStudents = r.students || [];
+  buildClassFilter();
+  loadStats(y);
+  applyFilters();
+}
+
+/* ================= Stats ================= */
+async function loadStats(y){
+  const r = await apiGet({action:'stats', year:y});
+  const row=$('statsRow');
+  if(!r.ok){ row.innerHTML=''; return; }
+  const levels = summarizeLevels(r.byClass);
+  row.innerHTML = `
+    <div class="stat accent"><div class="lbl">นักเรียนทั้งหมด</div><div class="num">${fmt(r.total)} <small>คน</small></div></div>
+    <div class="stat"><div class="lbl">ชาย</div><div class="num">${fmt(r.male)} <small>คน</small></div></div>
+    <div class="stat"><div class="lbl">หญิง</div><div class="num">${fmt(r.female)} <small>คน</small></div></div>
+    <div class="stat"><div class="lbl">อนุบาล</div><div class="num">${fmt(levels.อ)} <small>คน</small></div></div>
+    <div class="stat"><div class="lbl">ประถม</div><div class="num">${fmt(levels.ป)} <small>คน</small></div></div>
+    <div class="stat"><div class="lbl">มัธยม</div><div class="num">${fmt(levels.ม)} <small>คน</small></div></div>`;
+}
+function summarizeLevels(byClass){
+  const out={อ:0,ป:0,ม:0};
+  Object.keys(byClass||{}).forEach(c=>{
+    const n=byClass[c].total;
+    if(c.indexOf('อ')===0) out.อ+=n; else if(c.indexOf('ป')===0) out.ป+=n; else if(c.indexOf('ม')===0) out.ม+=n;
+  });
+  return out;
+}
+
+/* ================= Filters & search ================= */
+function buildClassFilter(){
+  const sel=$('classFilter'); const cur=sel.value;
+  const classes=[...new Set(allStudents.map(s=>s[CLASS]).filter(Boolean))].sort(thaiClassSort);
+  sel.innerHTML='<option value="">ทุกระดับชั้น</option>'+classes.map(c=>`<option value="${c}">${c}</option>`).join('');
+  if(classes.includes(cur)) sel.value=cur;
+}
+function applyFilters(){
+  const cls=$('classFilter').value, sex=$('genderFilter').value;
+  filtered = allStudents.filter(s=>(!cls||s[CLASS]===cls)&&(!sex||s[SEX]===sex));
+  page=1; renderTable();
+}
+let searching=false;
+async function onSearch(){
+  const q=$('searchInput').value.trim();
+  if(!q){ searching=false; $('tableTitle').textContent='รายชื่อนักเรียน'; applyFilters(); return; }
+  searching=true;
+  $('tableBody').innerHTML='<tr><td colspan="7" class="loading-row"><span class="spin" style="border-color:#ccc;border-top-color:#1b3a5b"></span> กำลังค้นหาทุกปี...</td></tr>';
+  const r = await apiGet({action:'search', q});
+  const res = r.results||[];
+  filtered = res.map(x=>{ const row=x.row.slice(); row._year=x.year; return row; });
+  $('tableTitle').textContent='ผลการค้นหา "'+q+'"';
+  page=1; renderTable(true);
+}
+
+/* ================= Table ================= */
+function renderTable(isSearch){
+  const tb=$('tableBody');
+  $('tableSub').textContent = filtered.length? ('พบ '+fmt(filtered.length)+' คน') : '';
+  if(!isSearch) $('tableTitle').textContent = 'รายชื่อนักเรียน ปีการศึกษา '+currentYear;
+  if(!filtered.length){
+    tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="big">ไม่พบข้อมูลนักเรียน</div><div>ลองปรับตัวกรอง หรือ นำเข้าข้อมูลจากไฟล์ DMC</div></div></td></tr>';
+    $('pager').innerHTML=''; return;
+  }
+  const start=(page-1)*perPage, slice=filtered.slice(start, start+perPage);
+  tb.innerHTML = slice.map((s,i)=>{
+    const yearTag = (isSearch&&s._year)? `<span class="muted"> · ปี ${s._year}</span>`:'';
+    return `<tr onclick="openStudent('${s[ID]}','${s._year||currentYear}')">
+      <td class="muted">${start+i+1}</td>
+      <td>${s[ID]||''}</td>
+      <td>${(s[PRE]||'')}${s[FN]||''} ${s[LN]||''}${yearTag}</td>
+      <td>${s[CLASS]||''}</td>
+      <td>${s[ROOM]||''}</td>
+      <td><span class="pill ${s[SEX]==='ช'?'pill-m':'pill-f'}">${s[SEX]==='ช'?'ชาย':'หญิง'}</span></td>
+      <td class="muted">${s[AGE]||'-'}</td>
+    </tr>`;
+  }).join('');
+  renderPager();
+}
+function renderPager(){
+  const total=Math.ceil(filtered.length/perPage);
+  const p=$('pager');
+  if(total<=1){ p.innerHTML=`<span>แสดง ${fmt(filtered.length)} รายการ</span>`; return; }
+  let btns='';
+  const add=(n,l,d,a)=>btns+=`<button class="pgbtn${a?' active':''}" ${d?'disabled':''} onclick="gotoPage(${n})">${l||n}</button>`;
+  add(page-1,'‹',page===1);
+  let s=Math.max(1,page-2), e=Math.min(total,s+4); s=Math.max(1,e-4);
+  for(let i=s;i<=e;i++) add(i,null,false,i===page);
+  add(page+1,'›',page===total);
+  p.innerHTML=`<span>หน้า ${page} จาก ${total}</span><div class="pages">${btns}</div>`;
+}
+function gotoPage(n){ page=n; renderTable(searching); window.scrollTo({top:0,behavior:'smooth'}); }
+
+/* ================= Student drawer ================= */
+async function openStudent(id, year){
+  const ov=$('overlay'), dr=$('drawer');
+  ov.classList.add('show'); dr.classList.add('show');
+  dr.innerHTML='<div class="loading-row" style="color:#fff;margin-top:60px"><span class="spin"></span> กำลังโหลด...</div>';
+  const r = await apiGet({action:'history', id});
+  const hist = r.history||[];
+  const cur = hist.find(h=>h.year===year) || hist[hist.length-1];
+  if(!cur){ dr.innerHTML='<div class="loading-row" style="color:#fff">ไม่พบข้อมูล</div>'; return; }
+  const s=cur.row;
+  const f=(i)=> s[i]||'-';
+  const histHtml = hist.map(h=>{
+    const rr=h.row;
+    return `<div class="histrow"><span class="histyear">ปี ${h.year}</span>
+      <span class="hc">${rr[CLASS]||''}/${rr[ROOM]||''} · เลขที่ ปจต. ${rr[SID]||'-'}</span></div>`;
+  }).join('');
+  dr.innerHTML = `
+    <div class="drawer-head">
+      <button class="drawer-close" onclick="closeDrawer()">✕</button>
+      <div class="nm">${f(PRE)}${f(FN)} ${f(LN)}</div>
+      <div class="meta">ปีการศึกษา ${cur.year} · ชั้น ${f(CLASS)}/${f(ROOM)} · เลขบัตร ${f(ID)}</div>
+    </div>
+    <div class="dsection">
+      <h3>📋 ข้อมูลนักเรียน</h3>
+      ${field('เลขบัตรประชาชน/G Code',f(ID))}
+      ${field('เลขประจำตัวนักเรียน',f(SID))}
+      ${field('เพศ',s[SEX]==='ช'?'ชาย':s[SEX]==='ญ'?'หญิง':f(SEX))}
+      ${field('วันเกิด',f(10))}${field('อายุ',f(AGE)+' ปี')}
+      ${field('น้ำหนัก / ส่วนสูง',f(12)+' กก. / '+f(13)+' ซม.')}
+      ${field('กลุ่มเลือด',f(14))}${field('ศาสนา',f(15))}
+      ${field('เชื้อชาติ / สัญชาติ',f(16)+' / '+f(17))}
+      ${field('ความด้อยโอกาส',f(37))}
+    </div>
+    <div class="dsection">
+      <h3>🏠 ที่อยู่</h3>
+      ${field('บ้านเลขที่ / หมู่',f(18)+' หมู่ '+f(19))}
+      ${field('ถนน/ซอย',f(20))}${field('ตำบล',f(21))}
+      ${field('อำเภอ',f(22))}${field('จังหวัด',f(23))}
+    </div>
+    <div class="dsection">
+      <h3>👪 ผู้ปกครอง</h3>
+      ${field('ชื่อผู้ปกครอง',f(24)+f(25)+' '+f(26))}
+      ${field('ความเกี่ยวข้อง',f(28))}${field('อาชีพ',f(27))}
+    </div>
+    <div class="dsection">
+      <h3>👨‍👩‍👧 บิดา - มารดา</h3>
+      ${field('บิดา',f(29)+f(30)+' '+f(31))}${field('อาชีพบิดา',f(32))}
+      ${field('มารดา',f(33)+f(34)+' '+f(35))}${field('อาชีพมารดา',f(36))}
+    </div>
+    <div class="dsection">
+      <h3>🕘 ประวัติการเรียนข้ามปี (${hist.length} ปี)</h3>
+      ${histHtml}
+    </div>
+    <div style="margin:16px 18px 30px;display:flex;gap:10px">
+      <button class="btn btn-ghost" style="flex:1" onclick="printStudent('${id}','${cur.year}')">🖨 พิมพ์ประวัติ</button>
+    </div>`;
+}
+function field(k,v){ return `<div class="dfield"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
+function closeDrawer(){ $('overlay').classList.remove('show'); $('drawer').classList.remove('show'); }
+
+/* ================= Import ================= */
+function openImport(){
+  if(!API){ toast('กรุณาตั้งค่าการเชื่อมต่อก่อน','err'); openConfig(); return; }
+  const sel=$('importYear');
+  const tabs=[...document.querySelectorAll('.ytab')].map(t=>t.textContent.replace('ปี ','')).filter(t=>/^\d{4}$/.test(t));
+  const years = tabs.length?tabs:[currentYear].filter(Boolean);
+  sel.innerHTML = years.map(y=>`<option value="${y}" ${y===currentYear?'selected':''}>ปี ${y}</option>`).join('')
+    || '<option value="">— ยังไม่มีปี กรุณาเพิ่มปีก่อน —</option>';
+  importRows=null; $('impPreview').classList.add('hidden'); $('confirmImportBtn').classList.add('hidden');
+  showModal('importModal');
+}
+function setupDropzone(){
+  const dz=$('dropzone'), fi=$('fileInput');
+  dz.onclick=()=>fi.click();
+  fi.onchange=e=>{ if(e.target.files[0]) parseFile(e.target.files[0]); };
+  ['dragover','dragenter'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag')}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag')}));
+  dz.addEventListener('drop',e=>{ if(e.dataTransfer.files[0]) parseFile(e.dataTransfer.files[0]); });
+}
+function parseFile(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+      // หาแถวหัวตาราง (แถวที่มีคำว่า 'รหัสโรงเรียน')
+      let h=-1;
+      for(let i=0;i<Math.min(rows.length,5);i++){
+        if(rows[i].some(c=>String(c).indexOf('รหัสโรงเรียน')!==-1)){ h=i; break; }
+      }
+      if(h===-1) h=0;
+      const data=rows.slice(h+1).filter(r=>r[ID]&&String(r[ID]).trim());
+      // ตัดซ้ำฝั่ง preview
+      const seen={}; const uniq=[];
+      data.forEach(r=>{ const k=String(r[ID]).trim(); if(!seen[k]){seen[k]=1;uniq.push(r);} });
+      importRows=uniq;
+      const dup=data.length-uniq.length;
+      $('impPreview').classList.remove('hidden');
+      $('impPreview').innerHTML=`
+        <div class="row"><span>ไฟล์</span><b>${file.name}</b></div>
+        <div class="row"><span>พบนักเรียน</span><b>${fmt(data.length)} รายการ</b></div>
+        <div class="row"><span>ตัดชื่อซ้ำออก</span><b>${fmt(dup)} รายการ</b></div>
+        <div class="row"><span>จะนำเข้าจริง</span><b style="color:var(--ok)">${fmt(uniq.length)} คน</b></div>`;
+      $('confirmImportBtn').classList.remove('hidden');
+    }catch(err){ toast('อ่านไฟล์ไม่สำเร็จ: '+err,'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+async function doImport(){
+  const year=$('importYear').value;
+  if(!year){ toast('กรุณาเลือกปีการศึกษา','err'); return; }
+  if(!importRows||!importRows.length){ toast('ยังไม่มีข้อมูล','err'); return; }
+  const btn=$('confirmImportBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> กำลังนำเข้า...';
+  try{
+    const r=await apiPost({action:'import', year, rows:importRows});
+    if(r.ok){
+      toast('นำเข้าสำเร็จ '+fmt(r.imported)+' คน (ตัดซ้ำ '+fmt(r.duplicatesRemoved)+')','ok');
+      closeModal('importModal'); await loadYears(); selectYear(year);
+    } else toast('ผิดพลาด: '+r.error,'err');
+  }catch(e){ toast('นำเข้าไม่สำเร็จ: '+e,'err'); }
+  btn.disabled=false; btn.innerHTML='ยืนยันนำเข้า';
+}
+
+/* ================= Export ================= */
+function exportCurrent(){
+  if(!filtered.length){ toast('ไม่มีข้อมูลให้ส่งออก','err'); return; }
+  const aoa=[HEADERS, ...filtered.map(r=>r.slice(0,HEADERS.length))];
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'ปี '+currentYear);
+  XLSX.writeFile(wb,`นักเรียน_${currentYear}.xlsx`);
+}
+
+/* ================= Add year ================= */
+function openAddYear(){ if(!API){toast('ตั้งค่าการเชื่อมต่อก่อน','err');openConfig();return;} $('newYearInput').value=''; showModal('yearModal'); }
+async function doAddYear(){
+  const y=$('newYearInput').value.trim();
+  if(!/^\d{4}$/.test(y)){ toast('กรอกปี พ.ศ. 4 หลัก','err'); return; }
+  const btn=$('addYearBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  const r=await apiPost({action:'addYear', year:y});
+  btn.disabled=false; btn.innerHTML='เพิ่มปี';
+  if(r.ok){ toast('เพิ่มปี '+y+' แล้ว','ok'); closeModal('yearModal'); currentYear=y; await loadYears(); }
+  else toast(r.error,'err');
+}
+
+/* ================= Config ================= */
+function openConfig(){ $('apiUrlInput').value=API; showModal('configModal'); }
+function closeConfig(){ closeModal('configModal'); }
+async function saveConfig(){
+  const url=$('apiUrlInput').value.trim();
+  if(!url){ toast('กรุณาวางลิงก์ Web App','err'); return; }
+  API=url; store.set('dmc_api_url',url);
+  const btn=$('saveConfigBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> กำลังทดสอบ...';
+  const ok=await testConnection(true);
+  btn.disabled=false; btn.innerHTML='บันทึก &amp; ทดสอบ';
+  if(ok){ toast('เชื่อมต่อสำเร็จ','ok'); closeConfig(); }
+  else toast('เชื่อมต่อไม่สำเร็จ ตรวจสอบลิงก์อีกครั้ง','err');
+}
+
+/* ================= Print ================= */
+async function printStudent(id, year){
+  const r=await apiGet({action:'history', id});
+  const cur=(r.history||[]).find(h=>h.year===year);
+  if(!cur) return;
+  const s=cur.row, f=i=>s[i]||'-';
+  const w=window.open('','_blank');
+  w.document.write(`<html><head><meta charset="utf-8"><title>ประวัตินักเรียน</title>
+  <style>body{font-family:'Sarabun','TH SarabunPSK',sans-serif;padding:40px;color:#1f2a37}
+  h1{color:#1b3a5b;font-size:22px;border-bottom:2px solid #c79a3c;padding-bottom:8px}
+  h2{font-size:16px;color:#1b3a5b;margin:18px 0 6px}
+  table{width:100%;border-collapse:collapse;font-size:15px}td{padding:5px 8px;border-bottom:1px solid #eee}
+  td.k{color:#5a6776;width:35%}</style></head><body>
+  <h1>ประวัตินักเรียน · ปีการศึกษา ${year}</h1>
+  <p style="font-size:18px;font-weight:600">${f(PRE)}${f(FN)} ${f(LN)}</p>
+  <h2>ข้อมูลนักเรียน</h2><table>
+  <tr><td class="k">เลขบัตรประชาชน</td><td>${f(ID)}</td></tr>
+  <tr><td class="k">ชั้น/ห้อง</td><td>${f(CLASS)}/${f(ROOM)}</td></tr>
+  <tr><td class="k">เพศ</td><td>${s[SEX]==='ช'?'ชาย':'หญิง'}</td></tr>
+  <tr><td class="k">วันเกิด</td><td>${f(10)}</td></tr>
+  <tr><td class="k">ที่อยู่</td><td>${f(18)} หมู่ ${f(19)} ต.${f(21)} อ.${f(22)} จ.${f(23)}</td></tr></table>
+  <h2>ผู้ปกครอง</h2><table>
+  <tr><td class="k">ชื่อ</td><td>${f(24)}${f(25)} ${f(26)} (${f(28)})</td></tr>
+  <tr><td class="k">บิดา</td><td>${f(29)}${f(30)} ${f(31)}</td></tr>
+  <tr><td class="k">มารดา</td><td>${f(33)}${f(34)} ${f(35)}</td></tr></table>
+  </body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),300);
+}
+
+/* ================= Empty state ================= */
+function renderEmptyState(){
+  $('statsRow').innerHTML='';
+  $('tableBody').innerHTML='<tr><td colspan="7"><div class="empty"><div class="big">ยังไม่มีข้อมูล</div><div>เริ่มต้นด้วยการกด “นำเข้าจาก DMC” เพื่ออัปโหลดไฟล์ Excel</div></div></td></tr>';
+  $('pager').innerHTML='';
+}
+
+/* ================= Utils ================= */
+function showModal(id){ $(id).classList.add('show'); }
+function closeModal(id){ $(id).classList.remove('show'); }
+function fmt(n){ return Number(n||0).toLocaleString('th-TH'); }
+function debounce(fn,ms){ let t; return(...a)=>{clearTimeout(t);t=setTimeout(()=>fn(...a),ms);}; }
+function toast(msg,type){
+  const t=$('toast'); t.textContent=msg; t.className='toast show '+(type||'');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function thaiClassSort(a,b){
+  const ord=c=>{ if(c[0]==='อ')return 0; if(c[0]==='ป')return 1; if(c[0]==='ม')return 2; return 3; };
+  if(ord(a)!==ord(b)) return ord(a)-ord(b);
+  return a.localeCompare(b,'th',{numeric:true});
+}
+</script>
+</body>
+</html>
