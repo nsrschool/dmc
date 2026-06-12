@@ -46,6 +46,21 @@ input,select{font-family:inherit;font-size:15px}
 .ytab.active{color:#fff;border-bottom-color:var(--gold)}
 .ytab-add{color:var(--gold);font-weight:600}
 
+/* ---------- Round bar ---------- */
+.roundbar{background:#eaeef3;border-bottom:1px solid var(--line)}
+.roundbar-inner{max-width:1280px;margin:0 auto;padding:11px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.roundbar .rlabel{font-size:13.5px;color:var(--ink-2);font-weight:600;margin-right:2px}
+.rtab{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line-d);
+  border-radius:10px;padding:7px 15px;text-align:left}
+.rtab:hover{border-color:var(--navy)}
+.rtab .rn{font-size:14px;font-weight:600;color:var(--ink);line-height:1.2}
+.rtab .rd{font-size:12px;color:var(--ink-3);line-height:1.2}
+.rtab .rdot{width:8px;height:8px;border-radius:50%;background:var(--line-d);flex-shrink:0}
+.rtab.has .rdot{background:#54b37d}
+.rtab.active{background:var(--navy);border-color:var(--navy)}
+.rtab.active .rn,.rtab.active .rd{color:#fff}
+.rtab.active .rdot{background:var(--gold)}
+
 /* ---------- Layout ---------- */
 .wrap{max-width:1280px;margin:0 auto;padding:24px}
 .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:20px;flex-wrap:wrap}
@@ -180,6 +195,11 @@ tbody tr:last-child td{border-bottom:none}
   <div class="yearstrip-inner" id="yearStrip"></div>
 </nav>
 
+<!-- ===== Round bar ===== -->
+<nav class="roundbar">
+  <div class="roundbar-inner" id="roundBar"></div>
+</nav>
+
 <main class="wrap">
   <!-- Toolbar -->
   <div class="toolbar">
@@ -275,6 +295,14 @@ tbody tr:last-child td{border-bottom:none}
         <label>นำเข้าเข้าปีการศึกษา</label>
         <select id="importYear" class="fltr" style="width:100%"></select>
       </div>
+      <div class="field">
+        <label>รอบข้อมูล</label>
+        <select id="importRound" class="fltr" style="width:100%">
+          <option value="1">รอบที่ 1 — 10 มิถุนายน</option>
+          <option value="2">รอบที่ 2 — 10 พฤศจิกายน</option>
+          <option value="3">รอบที่ 3 — 30 เมษายน</option>
+        </select>
+      </div>
       <div class="dropzone" id="dropzone">
         <div style="font-size:30px;margin-bottom:8px">📄</div>
         <div style="font-weight:600;color:var(--ink-2)">คลิกเพื่อเลือกไฟล์ หรือ ลากไฟล์ .xlsx มาวางที่นี่</div>
@@ -311,10 +339,13 @@ const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}
 const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyjYfD1HM1jZwMBARmBxvil8z68AqSQq98fmAyYWRlcPpCPg8JMOexIzODNAIUK1UtI/exec';
 let API = store.get('dmc_api_url') || DEFAULT_API;
 let currentYear = '';
+let currentRound = '1';
+let roundsByYear = {};
 let allStudents = [];
 let filtered = [];
 let page = 1, perPage = 25;
 let importRows = null;
+const ROUND_INFO = {'1':{n:'รอบที่ 1',d:'10 มิ.ย.'},'2':{n:'รอบที่ 2',d:'10 พ.ย.'},'3':{n:'รอบที่ 3',d:'30 เม.ย.'}};
 const $ = id => document.getElementById(id);
 
 /* ================= API ================= */
@@ -354,10 +385,11 @@ function setConn(on){
   t.textContent = on?'เชื่อมต่อแล้ว':'ยังไม่เชื่อมต่อ';
 }
 
-/* ================= Years ================= */
+/* ================= Years & Rounds ================= */
 async function loadYears(){
   const r = await apiGet({action:'years'});
   const years = (r.years||[]);
+  roundsByYear = r.rounds || {};
   const strip = $('yearStrip'); strip.innerHTML='';
   if(!years.length){
     strip.innerHTML = '<span style="color:#9fb0c4;padding:13px 4px;font-size:14px">ยังไม่มีปีการศึกษา — กดเพิ่มปีหรือ นำเข้าข้อมูล →</span>';
@@ -372,23 +404,51 @@ async function loadYears(){
   add.className='ytab ytab-add'; add.textContent='+ เพิ่มปี';
   add.onclick=openAddYear; strip.appendChild(add);
   if(years.length){ selectYear(currentYear && years.includes(currentYear)?currentYear:years[0]); }
-  else { renderEmptyState(); }
+  else { $('roundBar').innerHTML=''; renderEmptyState(); }
 }
+
+function renderRoundBar(){
+  const bar=$('roundBar');
+  if(!currentYear){ bar.innerHTML=''; return; }
+  const have = roundsByYear[currentYear] || [];
+  let html='<span class="rlabel">รอบข้อมูล:</span>';
+  ['1','2','3'].forEach(rn=>{
+    const info=ROUND_INFO[rn];
+    const has=have.includes(rn);
+    const active=rn===currentRound;
+    html+=`<button class="rtab${has?' has':''}${active?' active':''}" onclick="selectRound('${rn}')">
+      <span class="rdot"></span>
+      <span><span class="rn">${info.n}</span><br><span class="rd">${info.d}${has?'':' · ว่าง'}</span></span>
+    </button>`;
+  });
+  bar.innerHTML=html;
+}
+
 async function selectYear(y){
   currentYear=y;
   document.querySelectorAll('.ytab').forEach(t=>t.classList.toggle('active', t.textContent==='ปี '+y));
-  $('searchInput').value='';
+  const have = roundsByYear[y] || [];
+  // เลือกรอบที่มีข้อมูลล่าสุด ถ้าไม่มีเลยใช้รอบ 1
+  currentRound = have.length ? have[have.length-1] : '1';
+  renderRoundBar();
+  await selectRound(currentRound);
+}
+
+async function selectRound(rn){
+  currentRound=rn;
+  renderRoundBar();
+  $('searchInput').value=''; searching=false;
   $('tableBody').innerHTML='<tr><td colspan="7" class="loading-row"><span class="spin" style="border-color:#ccc;border-top-color:#1b3a5b"></span> กำลังโหลด...</td></tr>';
-  const r = await apiGet({action:'students', year:y});
+  const r = await apiGet({action:'students', year:currentYear, round:currentRound});
   allStudents = r.students || [];
   buildClassFilter();
-  loadStats(y);
+  loadStats(currentYear, currentRound);
   applyFilters();
 }
 
 /* ================= Stats ================= */
-async function loadStats(y){
-  const r = await apiGet({action:'stats', year:y});
+async function loadStats(y, rn){
+  const r = await apiGet({action:'stats', year:y, round:rn});
   const row=$('statsRow');
   if(!r.ok){ row.innerHTML=''; return; }
   const levels = summarizeLevels(r.byClass);
@@ -429,7 +489,7 @@ async function onSearch(){
   $('tableBody').innerHTML='<tr><td colspan="7" class="loading-row"><span class="spin" style="border-color:#ccc;border-top-color:#1b3a5b"></span> กำลังค้นหาทุกปี...</td></tr>';
   const r = await apiGet({action:'search', q});
   const res = r.results||[];
-  filtered = res.map(x=>{ const row=x.row.slice(); row._year=x.year; return row; });
+  filtered = res.map(x=>{ const row=x.row.slice(); row._year=x.year; row._round=x.round; return row; });
   $('tableTitle').textContent='ผลการค้นหา "'+q+'"';
   page=1; renderTable(true);
 }
@@ -438,15 +498,15 @@ async function onSearch(){
 function renderTable(isSearch){
   const tb=$('tableBody');
   $('tableSub').textContent = filtered.length? ('พบ '+fmt(filtered.length)+' คน') : '';
-  if(!isSearch) $('tableTitle').textContent = 'รายชื่อนักเรียน ปีการศึกษา '+currentYear;
+  if(!isSearch) $('tableTitle').textContent = 'รายชื่อนักเรียน ปีการศึกษา '+currentYear+' · '+ROUND_INFO[currentRound].n+' ('+ROUND_INFO[currentRound].d+')';
   if(!filtered.length){
     tb.innerHTML='<tr><td colspan="7"><div class="empty"><div class="big">ไม่พบข้อมูลนักเรียน</div><div>ลองปรับตัวกรอง หรือ นำเข้าข้อมูลจากไฟล์ DMC</div></div></td></tr>';
     $('pager').innerHTML=''; return;
   }
   const start=(page-1)*perPage, slice=filtered.slice(start, start+perPage);
   tb.innerHTML = slice.map((s,i)=>{
-    const yearTag = (isSearch&&s._year)? `<span class="muted"> · ปี ${s._year}</span>`:'';
-    return `<tr onclick="openStudent('${s[ID]}','${s._year||currentYear}')">
+    const yearTag = (isSearch&&s._year)? `<span class="muted"> · ปี ${s._year} ${ROUND_INFO[s._round]?ROUND_INFO[s._round].n:''}</span>`:'';
+    return `<tr onclick="openStudent('${s[ID]}','${s._year||currentYear}','${s._round||currentRound}')">
       <td class="muted">${start+i+1}</td>
       <td>${s[ID]||''}</td>
       <td>${(s[PRE]||'')}${s[FN]||''} ${s[LN]||''}${yearTag}</td>
@@ -473,26 +533,27 @@ function renderPager(){
 function gotoPage(n){ page=n; renderTable(searching); window.scrollTo({top:0,behavior:'smooth'}); }
 
 /* ================= Student drawer ================= */
-async function openStudent(id, year){
+async function openStudent(id, year, round){
   const ov=$('overlay'), dr=$('drawer');
   ov.classList.add('show'); dr.classList.add('show');
   dr.innerHTML='<div class="loading-row" style="color:#fff;margin-top:60px"><span class="spin"></span> กำลังโหลด...</div>';
   const r = await apiGet({action:'history', id});
   const hist = r.history||[];
-  const cur = hist.find(h=>h.year===year) || hist[hist.length-1];
+  const cur = hist.find(h=>h.year===year && h.round===round) || hist.find(h=>h.year===year) || hist[hist.length-1];
   if(!cur){ dr.innerHTML='<div class="loading-row" style="color:#fff">ไม่พบข้อมูล</div>'; return; }
   const s=cur.row;
   const f=(i)=> s[i]||'-';
   const histHtml = hist.map(h=>{
     const rr=h.row;
+    const ri=ROUND_INFO[h.round]||{n:'รอบ '+h.round,d:''};
     return `<div class="histrow"><span class="histyear">ปี ${h.year}</span>
-      <span class="hc">${rr[CLASS]||''}/${rr[ROOM]||''} · เลขที่ ปจต. ${rr[SID]||'-'}</span></div>`;
+      <span class="hc"><b>${ri.n}</b> (${ri.d}) · ชั้น ${rr[CLASS]||''}/${rr[ROOM]||''} · เลขที่ ปจต. ${rr[SID]||'-'}</span></div>`;
   }).join('');
   dr.innerHTML = `
     <div class="drawer-head">
       <button class="drawer-close" onclick="closeDrawer()">✕</button>
       <div class="nm">${f(PRE)}${f(FN)} ${f(LN)}</div>
-      <div class="meta">ปีการศึกษา ${cur.year} · ชั้น ${f(CLASS)}/${f(ROOM)} · เลขบัตร ${f(ID)}</div>
+      <div class="meta">ปีการศึกษา ${cur.year} · ${(ROUND_INFO[cur.round]||{}).n||''} · ชั้น ${f(CLASS)}/${f(ROOM)} · เลขบัตร ${f(ID)}</div>
     </div>
     <div class="dsection">
       <h3>📋 ข้อมูลนักเรียน</h3>
@@ -522,11 +583,11 @@ async function openStudent(id, year){
       ${field('มารดา',f(33)+f(34)+' '+f(35))}${field('อาชีพมารดา',f(36))}
     </div>
     <div class="dsection">
-      <h3>🕘 ประวัติการเรียนข้ามปี (${hist.length} ปี)</h3>
+      <h3>🕘 ประวัติการเรียนข้ามปี/รอบ (${hist.length} รายการ)</h3>
       ${histHtml}
     </div>
     <div style="margin:16px 18px 30px;display:flex;gap:10px">
-      <button class="btn btn-ghost" style="flex:1" onclick="printStudent('${id}','${cur.year}')">🖨 พิมพ์ประวัติ</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="printStudent('${id}','${cur.year}','${cur.round}')">🖨 พิมพ์ประวัติ</button>
     </div>`;
 }
 function field(k,v){ return `<div class="dfield"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
@@ -541,6 +602,7 @@ function openImport(){
   sel.innerHTML = years.map(y=>`<option value="${y}" ${y===currentYear?'selected':''}>ปี ${y}</option>`).join('')
     || '<option value="">— ยังไม่มีปี กรุณาเพิ่มปีก่อน —</option>';
   importRows=null; $('impPreview').classList.add('hidden'); $('confirmImportBtn').classList.add('hidden');
+  $('importRound').value = currentRound || '1';
   showModal('importModal');
 }
 function setupDropzone(){
@@ -583,14 +645,17 @@ function parseFile(file){
 }
 async function doImport(){
   const year=$('importYear').value;
+  const round=$('importRound').value;
   if(!year){ toast('กรุณาเลือกปีการศึกษา','err'); return; }
   if(!importRows||!importRows.length){ toast('ยังไม่มีข้อมูล','err'); return; }
   const btn=$('confirmImportBtn'); btn.disabled=true; btn.innerHTML='<span class="spin"></span> กำลังนำเข้า...';
   try{
-    const r=await apiPost({action:'import', year, rows:importRows});
+    const r=await apiPost({action:'import', year, round, rows:importRows});
     if(r.ok){
       toast('นำเข้าสำเร็จ '+fmt(r.imported)+' คน (ตัดซ้ำ '+fmt(r.duplicatesRemoved)+')','ok');
-      closeModal('importModal'); await loadYears(); selectYear(year);
+      closeModal('importModal');
+      currentYear=year; currentRound=round;
+      await loadYears();
     } else toast('ผิดพลาด: '+r.error,'err');
   }catch(e){ toast('นำเข้าไม่สำเร็จ: '+e,'err'); }
   btn.disabled=false; btn.innerHTML='ยืนยันนำเข้า';
@@ -602,8 +667,8 @@ function exportCurrent(){
   const aoa=[HEADERS, ...filtered.map(r=>r.slice(0,HEADERS.length))];
   const ws=XLSX.utils.aoa_to_sheet(aoa);
   const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'ปี '+currentYear);
-  XLSX.writeFile(wb,`นักเรียน_${currentYear}.xlsx`);
+  XLSX.utils.book_append_sheet(wb,ws,currentYear+'-'+currentRound);
+  XLSX.writeFile(wb,`นักเรียน_${currentYear}_รอบ${currentRound}.xlsx`);
 }
 
 /* ================= Add year ================= */
@@ -633,11 +698,12 @@ async function saveConfig(){
 }
 
 /* ================= Print ================= */
-async function printStudent(id, year){
+async function printStudent(id, year, round){
   const r=await apiGet({action:'history', id});
-  const cur=(r.history||[]).find(h=>h.year===year);
+  const cur=(r.history||[]).find(h=>h.year===year && h.round===round) || (r.history||[]).find(h=>h.year===year);
   if(!cur) return;
   const s=cur.row, f=i=>s[i]||'-';
+  const ri=ROUND_INFO[cur.round]||{n:'',d:''};
   const w=window.open('','_blank');
   w.document.write(`<html><head><meta charset="utf-8"><title>ประวัตินักเรียน</title>
   <style>body{font-family:'Sarabun','TH SarabunPSK',sans-serif;padding:40px;color:#1f2a37}
@@ -645,7 +711,7 @@ async function printStudent(id, year){
   h2{font-size:16px;color:#1b3a5b;margin:18px 0 6px}
   table{width:100%;border-collapse:collapse;font-size:15px}td{padding:5px 8px;border-bottom:1px solid #eee}
   td.k{color:#5a6776;width:35%}</style></head><body>
-  <h1>ประวัตินักเรียน · ปีการศึกษา ${year}</h1>
+  <h1>ประวัตินักเรียน · ปีการศึกษา ${year} · ${ri.n} (${ri.d})</h1>
   <p style="font-size:18px;font-weight:600">${f(PRE)}${f(FN)} ${f(LN)}</p>
   <h2>ข้อมูลนักเรียน</h2><table>
   <tr><td class="k">เลขบัตรประชาชน</td><td>${f(ID)}</td></tr>
