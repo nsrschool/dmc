@@ -331,9 +331,9 @@ const HEADERS = [
   'อาชีพของผู้ปกครอง','ความเกี่ยวข้องของผู้ปกครองกับนักเรียน',
   'คำนำหน้าชื่อบิดา','ชื่อบิดา','นามสกุลบิดา','อาชีพของบิดา',
   'คำนำหน้าชื่อมารดา','ชื่อมารดา','นามสกุลมารดา','อาชีพของมารดา',
-  'ความด้อยโอกาส','ยังไม่สามารถจำหน่ายได้ (3.1.8)'
+  'ความด้อยโอกาส','ยังไม่สามารถจำหน่ายได้ (3.1.8)','เบอร์โทรศัพท์'
 ];
-const ID=2, CLASS=3, ROOM=4, SID=5, SEX=6, PRE=7, FN=8, LN=9, AGE=11;
+const ID=2, CLASS=3, ROOM=4, SID=5, SEX=6, PRE=7, FN=8, LN=9, AGE=11, PHONE=39;
 const store = { get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},
                 set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}} };
 const DEFAULT_API = 'https://script.google.com/macros/s/AKfycbyjYfD1HM1jZwMBARmBxvil8z68AqSQq98fmAyYWRlcPpCPg8JMOexIzODNAIUK1UtI/exec';
@@ -565,6 +565,16 @@ async function openStudent(id, year, round){
       ${field('กลุ่มเลือด',f(14))}${field('ศาสนา',f(15))}
       ${field('เชื้อชาติ / สัญชาติ',f(16)+' / '+f(17))}
       ${field('ความด้อยโอกาส',f(37))}
+      ${field('สถานะจำหน่าย (3.1.8)',f(38))}
+      <div class="dfield" style="align-items:center">
+        <span class="k">เบอร์โทรศัพท์</span>
+        <span class="v" style="display:flex;gap:8px;align-items:center">
+          <input id="phoneInput" type="tel" value="${s[PHONE]&&s[PHONE]!=='-'?s[PHONE]:''}" placeholder="กรอกเบอร์โทร"
+            style="flex:1;padding:6px 10px;border:1px solid var(--line-d);border-radius:8px;outline:none;font-size:15px">
+          <button class="btn btn-primary" style="padding:6px 14px;font-size:14px"
+            onclick="savePhone('${f(ID)}','${cur.year}','${cur.round}')">บันทึก</button>
+        </span>
+      </div>
     </div>
     <div class="dsection">
       <h3>🏠 ที่อยู่</h3>
@@ -583,6 +593,10 @@ async function openStudent(id, year, round){
       ${field('มารดา',f(33)+f(34)+' '+f(35))}${field('อาชีพมารดา',f(36))}
     </div>
     <div class="dsection">
+      <h3>🏫 ข้อมูลโรงเรียน</h3>
+      ${field('รหัสโรงเรียน',f(0))}${field('ชื่อโรงเรียน',f(1))}
+    </div>
+    <div class="dsection">
       <h3>🕘 ประวัติการเรียนข้ามปี/รอบ (${hist.length} รายการ)</h3>
       ${histHtml}
     </div>
@@ -592,6 +606,16 @@ async function openStudent(id, year, round){
 }
 function field(k,v){ return `<div class="dfield"><span class="k">${k}</span><span class="v">${v}</span></div>`; }
 function closeDrawer(){ $('overlay').classList.remove('show'); $('drawer').classList.remove('show'); }
+async function savePhone(id, year, round){
+  const phone=$('phoneInput').value.trim();
+  const r=await apiPost({action:'updatePhone', year, round, id, phone});
+  if(r.ok){
+    toast('บันทึกเบอร์โทรแล้ว','ok');
+    // อัปเดตข้อมูลในหน่วยความจำ เพื่อให้แสดงผลตรงกัน
+    const st=allStudents.find(s=>String(s[ID]).trim()===String(id).trim());
+    if(st) st[PHONE]=phone;
+  } else toast('บันทึกไม่สำเร็จ: '+r.error,'err');
+}
 
 /* ================= Import ================= */
 function openImport(){
@@ -702,27 +726,63 @@ async function printStudent(id, year, round){
   const r=await apiGet({action:'history', id});
   const cur=(r.history||[]).find(h=>h.year===year && h.round===round) || (r.history||[]).find(h=>h.year===year);
   if(!cur) return;
-  const s=cur.row, f=i=>s[i]||'-';
+  const s=cur.row, f=i=>(s[i]!==undefined&&s[i]!=='')?s[i]:'-';
   const ri=ROUND_INFO[cur.round]||{n:'',d:''};
   const w=window.open('','_blank');
   w.document.write(`<html><head><meta charset="utf-8"><title>ประวัตินักเรียน</title>
-  <style>body{font-family:'Sarabun','TH SarabunPSK',sans-serif;padding:40px;color:#1f2a37}
-  h1{color:#1b3a5b;font-size:22px;border-bottom:2px solid #c79a3c;padding-bottom:8px}
-  h2{font-size:16px;color:#1b3a5b;margin:18px 0 6px}
-  table{width:100%;border-collapse:collapse;font-size:15px}td{padding:5px 8px;border-bottom:1px solid #eee}
-  td.k{color:#5a6776;width:35%}</style></head><body>
-  <h1>ประวัตินักเรียน · ปีการศึกษา ${year} · ${ri.n} (${ri.d})</h1>
-  <p style="font-size:18px;font-weight:600">${f(PRE)}${f(FN)} ${f(LN)}</p>
-  <h2>ข้อมูลนักเรียน</h2><table>
-  <tr><td class="k">เลขบัตรประชาชน</td><td>${f(ID)}</td></tr>
-  <tr><td class="k">ชั้น/ห้อง</td><td>${f(CLASS)}/${f(ROOM)}</td></tr>
-  <tr><td class="k">เพศ</td><td>${s[SEX]==='ช'?'ชาย':'หญิง'}</td></tr>
-  <tr><td class="k">วันเกิด</td><td>${f(10)}</td></tr>
-  <tr><td class="k">ที่อยู่</td><td>${f(18)} หมู่ ${f(19)} ต.${f(21)} อ.${f(22)} จ.${f(23)}</td></tr></table>
-  <h2>ผู้ปกครอง</h2><table>
-  <tr><td class="k">ชื่อ</td><td>${f(24)}${f(25)} ${f(26)} (${f(28)})</td></tr>
-  <tr><td class="k">บิดา</td><td>${f(29)}${f(30)} ${f(31)}</td></tr>
-  <tr><td class="k">มารดา</td><td>${f(33)}${f(34)} ${f(35)}</td></tr></table>
+  <style>body{font-family:'Sarabun','TH SarabunPSK',sans-serif;padding:38px;color:#1f2a37}
+  h1{color:#1b3a5b;font-size:21px;border-bottom:2px solid #c79a3c;padding-bottom:8px;margin-bottom:4px}
+  .nm{font-size:18px;font-weight:600;margin:6px 0 2px}
+  h2{font-size:15px;color:#1b3a5b;margin:16px 0 4px;border-left:4px solid #1b3a5b;padding-left:8px}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin-bottom:4px}
+  td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
+  td.k{color:#5a6776;width:32%}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+  @media print{body{padding:18px}}</style></head><body>
+  <h1>ประวัตินักเรียนรายบุคคล (ข้อมูลจากระบบ DMC)</h1>
+  <div style="font-size:13px;color:#5a6776">ปีการศึกษา ${year} · ${ri.n} (${ri.d}) · โรงเรียน${f(1)}</div>
+  <div class="nm">${f(PRE)}${f(FN)} ${f(LN)}</div>
+
+  <h2>ข้อมูลนักเรียน</h2>
+  <div class="two">
+  <table>
+   <tr><td class="k">เลขบัตรประชาชน</td><td>${f(ID)}</td></tr>
+   <tr><td class="k">เลขประจำตัวนักเรียน</td><td>${f(SID)}</td></tr>
+   <tr><td class="k">ชั้น/ห้อง</td><td>${f(CLASS)}/${f(ROOM)}</td></tr>
+   <tr><td class="k">เพศ</td><td>${s[SEX]==='ช'?'ชาย':s[SEX]==='ญ'?'หญิง':f(SEX)}</td></tr>
+   <tr><td class="k">วันเกิด</td><td>${f(10)}</td></tr>
+   <tr><td class="k">อายุ</td><td>${f(AGE)} ปี</td></tr>
+   <tr><td class="k">เบอร์โทรศัพท์</td><td>${f(PHONE)}</td></tr>
+  </table>
+  <table>
+   <tr><td class="k">น้ำหนัก</td><td>${f(12)} กก.</td></tr>
+   <tr><td class="k">ส่วนสูง</td><td>${f(13)} ซม.</td></tr>
+   <tr><td class="k">กลุ่มเลือด</td><td>${f(14)}</td></tr>
+   <tr><td class="k">ศาสนา</td><td>${f(15)}</td></tr>
+   <tr><td class="k">เชื้อชาติ</td><td>${f(16)}</td></tr>
+   <tr><td class="k">สัญชาติ</td><td>${f(17)}</td></tr>
+   <tr><td class="k">ความด้อยโอกาส</td><td>${f(37)}</td></tr>
+  </table>
+  </div>
+
+  <h2>ที่อยู่</h2>
+  <table>
+   <tr><td class="k">ที่อยู่</td><td>บ้านเลขที่ ${f(18)} หมู่ ${f(19)} ${f(20)!=='-'?'ถนน/ซอย '+f(20):''}</td></tr>
+   <tr><td class="k">ตำบล / อำเภอ / จังหวัด</td><td>${f(21)} / ${f(22)} / ${f(23)}</td></tr>
+  </table>
+
+  <h2>ผู้ปกครอง</h2>
+  <table>
+   <tr><td class="k">ชื่อผู้ปกครอง</td><td>${f(24)}${f(25)} ${f(26)}</td></tr>
+   <tr><td class="k">ความเกี่ยวข้อง</td><td>${f(28)}</td></tr>
+   <tr><td class="k">อาชีพ</td><td>${f(27)}</td></tr>
+  </table>
+
+  <h2>บิดา - มารดา</h2>
+  <table>
+   <tr><td class="k">บิดา</td><td>${f(29)}${f(30)} ${f(31)} — อาชีพ ${f(32)}</td></tr>
+   <tr><td class="k">มารดา</td><td>${f(33)}${f(34)} ${f(35)} — อาชีพ ${f(36)}</td></tr>
+  </table>
   </body></html>`);
   w.document.close(); setTimeout(()=>w.print(),300);
 }
